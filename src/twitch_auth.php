@@ -20,7 +20,7 @@ if(count($rows) > 0) {
 	$data = json_decode($response);
 	
 	$_access_token = $data->access_token;
-	$stmt = $db->prepare('INSERT INTO Twitch_Tokens (ClientID, AccessToken, Expires, Scope) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECONDS), ?)');
+	$stmt = $db->prepare('INSERT INTO Twitch_Tokens (ClientID, AccessToken, Expires, Scope) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), ?)');
 	$stmt->execute(array($clientid, $data->access_token, $data->expires_in, json_encode($data->scope)));
 }
 
@@ -49,7 +49,7 @@ function twitch_sync_subscriptions() {
 		}
 	}
 	$missing = array_diff_key($dbrows, $found);
-var_dump($dbrows, $found, $missing);
+
 	foreach($missing as $sub) {
 		$slug = $sub['Slug'];
 		$secret = $sub['Secret'];

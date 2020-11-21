@@ -9,6 +9,5 @@
 * Email Validation
 * Twitch Username to broadcaster_user_id ???
 * Usage Stats?
-* Neat inline documentation for template values based on event type
 * Ajax waiting cursor
 

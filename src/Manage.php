@@ -137,7 +137,7 @@ include 'src/twitch_auth.php';
 		}
 		?>
 		</select></label>
-	</div> <a href="" class="add_service add_service_link">Add Service</a><br>
+	</div> <a href="" class="add_service add_service_link">New Service</a><br>
 	<label><span class="field addservice_field">Channel:</span> <input type="text" name="field"></label><br>
 	<label><span class="field addservice_template">Template:</span> <input type="text" name="valuetemplate" size="60"></label><br>
 	<div class="template_description"></div>
