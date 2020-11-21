@@ -33,15 +33,16 @@ CREATE TABLE Subscription_Types (
 	Description	TEXT,
 	TemplateHelp	TEXT
 );
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Follow', 'channel.follow');
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Subscribe', 'channel.subscribe');
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Bits', 'channel.cheer');
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Channel Points', 'channel.channel_points_custom_reward_redemption.add');
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Hype Train Start', 'channel.hype_train.begin');
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Hype Train Progress', 'channel.hype_train.progress');
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Hype Train End', 'channel.hype_train.end');
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Stream Start', 'stream.online');
-INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Stream End', 'stream.offline');
+INSERT INTO `Subscription_Types` (`ID`, `Name`, `Field`, `Description`, `TemplateHelp`) VALUES
+(1, 'Follow', 'channel.follow', NULL, '#user_id#		Unique ID of the user\r\n#user_name#		Name of the user\r\n'),
+(2, 'Subscribe', 'channel.subscribe', NULL, '#user_id#		Unique ID of the user\r\n#user_name#		Name of the user\r\n#is_gift#		\"true\" if the sub was gifted'),
+(3, 'Bits', 'channel.cheer', NULL, '#user_id#		Unique ID of the user\r\n#user_name#		Name of the user\r\n#is_anonymous#		Is this an anonymous cheer\r\n#message#		The user\'s cheer message\r\n#bits#			The number of bits the user cheered'),
+(4, 'Channel Points', 'channel.channel_points_custom_reward_redemption.add', NULL, '#user_id#		Unique ID of the user\r\n#user_name#		Name of the user\r\n#user_input#		The message the user added to the reward\r\n#reward_title#		The name of the reward redeemed\r\n#reward_cost#		The cost of the reward redeemed\r\n#reward_prompt#		The description of the reward redeemed\r\n#redeemed_at		The timestame the reward was redeemed'),
+(5, 'Hype Train Start', 'channel.hype_train.begin', NULL, ''),
+(6, 'Hype Train Progress', 'channel.hype_train.progress', NULL, ''),
+(7, 'Hype Train End', 'channel.hype_train.end', NULL, ''),
+(8, 'Stream Start', 'stream.online', NULL, ''),
+(9, 'Stream End', 'stream.offline', NULL, '');
 
 CREATE TABLE Callbacks (
 	Slug		VARCHAR(100) NOT NULL PRIMARY KEY,
@@ -75,11 +76,12 @@ CREATE TABLE Action_Service_Types (
 	Handler		VARCHAR(255),
 	Public		INT NOT NULL DEFAULT 1
 );
-INSERT INTO Action_Service_Types (Name, Handler, Public) VALUES ('IRC', 'IRC.php', 1);
-INSERT INTO Action_Service_Types (Name, Handler, Public) VALUES ('HTTP', 'HTTP.php', 1);
-INSERT INTO Action_Service_Types (Name, Handler, Public) VALUES ('MQTT', 'MQTT.php', 0);
-INSERT INTO Action_Service_Types (Name, Handler, Public) VALUES ('ZeroMQ', 'ZeroMQ.php', 0);
-INSERT INTO Action_Service_Types (Name, Handler, Public) VALUES ('Websocket', 'Websocket.php', 0);
+INSERT INTO Action_Service_Types (Name, Handler, Public, FieldName) VALUES ('IRC', 'IRC.php', 1, 'Channel');
+INSERT INTO Action_Service_Types (Name, Handler, Public, FieldName) VALUES ('HTTP', 'HTTP.php', 1, 'Field');
+INSERT INTO Action_Service_Types (Name, Handler, Public, FieldName) VALUES ('HTTPS', 'HTTPS.php', 1, 'Field');
+INSERT INTO Action_Service_Types (Name, Handler, Public, FieldName) VALUES ('MQTT', 'MQTT.php', 0, 'Topic');
+INSERT INTO Action_Service_Types (Name, Handler, Public, FieldName) VALUES ('ZeroMQ', 'ZeroMQ.php', 0, 'Key');
+INSERT INTO Action_Service_Types (Name, Handler, Public, FieldName) VALUES ('Websocket', 'Websocket.php', 0, '');
 
 CREATE TABLE Twitch_Tokens (
 	ID		INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
