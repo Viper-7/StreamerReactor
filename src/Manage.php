@@ -67,7 +67,7 @@ include 'src/twitch_auth.php';
 		font-family: Verdana;
 	}
 	.template_description {
-		max-width: 400px;
+		max-width: 600px;
 		margin: 16px;
 		padding: 8px;
 		background-color: #fff;
