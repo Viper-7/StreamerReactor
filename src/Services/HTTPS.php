@@ -43,5 +43,14 @@
 * $type					"live"					StreamOnline
 **/
 
-$_script = 'src/Services/' . $action_service_handler;
-include $_script;
+$service['Port'] = $service['Port'] ?: 80;
+$login = '';
+if($service['Username']) {
+	$login = $service['Username'];
+	if($service['Password'])
+		$login .= ':' . $service['Password'];
+	$login .= '@';
+}
+$url = "https://{$login}{$service['Host']}:{$service['Port']}/{$service['Path']}?{$field}=" . urlencode(rendertemplate($value_template));
+
+get_headers($url);
