@@ -11,6 +11,11 @@ function trigger_service($event, $action, $subscription_id, $callback_id, $messa
 	unset($event);
 	extract($action);
 	unset($action);
+	if(isset($reward)) {
+		$reward_title = $reward->title;
+		$reward_cost = $reward->cost;
+		$reward_prompt = $reward->prompt;
+	}
 	include 'src/trigger_service.php';
 }
 
