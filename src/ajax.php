@@ -55,7 +55,7 @@ switch($url_parts[0]) {
 				<?php
 				$stmt3 = $db->prepare('
 					SELECT
-						Action_Services.Name,
+						Actions.ID,
 						Action_Services.Host,
 						Action_Services.Port,
 						Action_Services.Path,
@@ -77,9 +77,21 @@ switch($url_parts[0]) {
 				foreach($actions as $action) {
 					?>
 					<div class="action">
-						<ul>
-							<li><?=$action['TypeName'].':'.$action['Name'] . ' - ' . $action['Field'] . ' = ' . $action['ValueTemplate']?></li>
-						</ul>
+						<span class="leftdel"><a href="/manage/actions/<?=$action['ID']?>/delete" class="action_delete_link" data-id="<?=$action['ID']?>">X</a></span>
+						<?php
+						switch($action['TypeName']) {
+							case 'HTTP':
+								$path = ltrim($action['Path'], '/');
+								echo "Make a HTTP request to http://{$action['Host']}/{$path}?{$action['Field']}=[value]<br>";
+								echo "<i>{$action['ValueTemplate']}</i><br>";
+								break;
+							case 'IRC':
+								echo "Send a message on IRC ({$action['Host']}) to channel {$action['Field']}<br>";
+								echo "<i>{$action['ValueTemplate']}</i><br>";
+								break;
+								
+						}
+						?><br>
 					</div>
 					<?php
 				}
@@ -100,34 +112,83 @@ switch($url_parts[0]) {
 			<?php
 		}
 		break;
+	case 'delete_action':
+		$stmt = $db->prepare('SELECT Actions.ID FROM Actions JOIN Action_Services ON (Action_Services.ID = Actions.ActionServiceID) WHERE Actions.ID=? and Action_Services.UserID=?');
+		$stmt->execute(array($_GET['action'], $_SESSION['user']));
+		$rows = $stmt->fetchAll();
+		if(count($rows) > 0) {
+			$stmt = $db->prepare('DELETE FROM Actions WHERE ID=?');
+			$stmt->execute(array($_GET['action']));
+		}
+		break;
 	case 'create_channel':
 		$stmt = $db->prepare('INSERT INTO Channels (Name, Slug, UserID) VALUES (?, ?, ?)');
 		$stmt->execute(array($_POST['name'], $_POST['slug'], $_SESSION['user']));
+		return $db->lastInsertId;
+
 		break;
 	case 'create_subscription':
 		if(isset($_POST['channelid'])) {
 			$stmt = $db->prepare('INSERT INTO Subscriptions (ChannelID, SubscriptionTypeID) VALUES (?, ?)');
 			$stmt->execute(array($_POST['channelid'], $_POST['subtypeid']));
+			$id = $db->lastInsertId;
 		}
 		
 		twitch_sync_subscriptions();
+		return $id;
+		
+		break;
+	case 'create_service':
+		if(isset($_POST['typeid'])) {
+			$stmt = $db->prepare('INSERT INTO Action_Services (UserID, ServiceTypeID, Host, Port, Path, Username, `Password`) VALUES (?,?,?,?,?,?,?)');
+			$stmt->execute(array($_SESSION['user'], $_POST['typeid'], $_POST['host'], $_POST['port'], $_POST['path'], $_POST['username'], $_POST['password']));
+			return $db->lastInsertId;
+		}
+		
+		break;
+	case 'create_action':
+		if(isset($_POST['ActionServiceID'])) {
+			$stmt = $db->prepare('INSERT INTO Actions (ActionServiceID, SubscriptionID, `Field`, ValueTemplate) VALUES (?, ?, ?, ?)');
+			$stmt->execute(array($_POST['ActionServiceID'], $_POST['subscriptionid'], $_POST['field'], $_POST['valuetemplate']));
+			return $db->lastInsertId;
+		}
 		
 		break;
 	case 'services_field':
 		?>
 		<label><span class="field">Service:</span> <select name="ActionServiceID" size="1" class="action_service_id">
 		<?php
-		$stmt = $db->prepare('SELECT ID, Name FROM Action_Services WHERE UserID=? AND ServiceTypeID=?');
+		$stmt = $db->prepare('SELECT ID, Host, Path, Username FROM Action_Services WHERE UserID=? AND ServiceTypeID=?');
 		$stmt->execute(array($_SESSION['user'], $_GET['typeid']));
 		$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 		foreach($rows as $row) {
 			?>
-			<option value="<?=$row['ID']?>"><?=$row['Name']?></option>
+			<option value="<?=$row['ID']?>"><?=($row['Username']?($row['Username'].'@'):'').$row['Host'].$row['Path']?></option>
 			<?php
 		}
 		?>
 		</select></label>
 		<?php
 		break;
-	
+	case 'service_help':
+		$stmt = $db->prepare('SELECT TemplateHelp FROM Subscription_Types JOIN Subscriptions ON (Subscriptions.SubscriptionTypeID = Subscription_Types.ID) WHERE Subscriptions.ID=?');
+		$stmt->execute(array($_GET['subid']));
+		$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		echo $rows[0]['TemplateHelp'];
+		break;
+	case 'action_metadata':
+		$stmt = $db->prepare('SELECT FieldName FROM Action_Service_Types WHERE ID=?');
+		$stmt->execute(array($_GET['typeid']));
+		$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$stmt = $db->prepare('SELECT TemplateHelp FROM Subscription_Types JOIN Subscriptions ON (Subscriptions.SubscriptionTypeID = Subscription_Types.ID) WHERE Subscriptions.ID=?');
+		$stmt->execute(array($_GET['subid']));
+		$rows2 = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		
+		$data = array(
+			'template_help' => $rows2[0]['TemplateHelp'],
+			'field_name' => $rows[0]['FieldName']
+		);
+		
+		echo json_encode($data);
+		break;
 }

@@ -30,7 +30,8 @@ CREATE TABLE Subscription_Types (
 	ID		INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	Name		VARCHAR(4000),
 	`Field`		VARCHAR(255),
-	Description	TEXT
+	Description	TEXT,
+	TemplateHelp	TEXT
 );
 INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Follow', 'channel.follow');
 INSERT INTO Subscription_Types (Name, `Field`) VALUES ('Subscribe', 'channel.subscribe');
@@ -70,6 +71,7 @@ CREATE TABLE Actions (
 CREATE TABLE Action_Service_Types (
 	ID		INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	Name		VARCHAR(4000),
+	FieldName	VARCHAR(255),
 	Handler		VARCHAR(255),
 	Public		INT NOT NULL DEFAULT 1
 );

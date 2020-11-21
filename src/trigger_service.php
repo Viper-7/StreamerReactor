@@ -26,7 +26,9 @@
 * $bits					500					Cheer
 * $user_input				"Channel Point Message"			Reward
 * $status				"unfulfilled"				Reward
-* $reward				object(Reward)				Reward
+* $reward_title				"Some Title"				Reward
+* $reward_cost				500					Reward
+* $reward_prompt			"Description goes here"			Reward
 * $redeemed_at				2002-10-02T15:00:00Z			Reward
 * $total				400					HypeTrainBegin/HypeTrainProgress/HypeTrainEnd
 * $goal					1000					HypeTrainBegin/HypeTrainProgress/HypeTrainEnd
