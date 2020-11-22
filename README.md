@@ -22,6 +22,8 @@ Once StreamerReactor receives an event, it can trigger any number of actions, ea
 
 With more endpoints planned for the future!
 
+As twitch.tv requires applications to provide public HTTPS access on port 443, many users struggle with using twitch's EventSub API from home. Because of this, StreamerReactor has been designed as a cloud appliance, and is freely available to use at https://streamerreactor.viper-7.com/
+
 
 
 # Todo
