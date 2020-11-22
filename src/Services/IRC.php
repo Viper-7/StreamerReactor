@@ -43,7 +43,7 @@
 * $type					"live"					StreamOnline
 **/
 
-include('simpleirc.php');
+include_once 'simpleirc.php';
 
 $si = new simpleirc();
 $si->connect($service['Host'], $service['Username'], $service['Password'], $service['Port'] ?: 6667);

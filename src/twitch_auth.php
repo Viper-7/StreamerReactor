@@ -28,12 +28,41 @@ function twitch_sync_subscriptions() {
 	$db = $GLOBALS['db'];
 	
 	$resp = twitch_request('https://api.twitch.tv/helix/eventsub/subscriptions', array(), 'GET');
-	$stmt = $db->prepare('SELECT Subscriptions.ID, TwitchID, Subscription_Types.Name as Name, Subscription_Types.`Field`, Channels.BroadcasterID as BroadcasterID, Callbacks.Slug as Slug, Callbacks.Secret as Secret FROM Subscriptions LEFT JOIN Callbacks ON (Callbacks.SubscriptionID = Subscriptions.ID) JOIN Subscription_Types ON (Subscription_Types.id = Subscriptions.SubscriptionTypeId) JOIN Channels ON (Subscriptions.ChannelID = Channels.ID) JOIN Users ON (Users.ID = Channels.UserID) WHERE Users.Active=1');
+	$stmt = $db->prepare('
+		SELECT 
+			Subscriptions.ID, 
+			TwitchID, 
+			Subscription_Types.Name as Name, 
+			Subscription_Types.`Field`, 
+			Channels.BroadcasterID as BroadcasterID, 
+			Callbacks.Slug as Slug, 
+			Callbacks.Secret as Secret, 
+			COUNT(Actions.ID) as NumActions 
+		FROM 
+			Subscriptions 
+			LEFT JOIN Callbacks ON (Callbacks.SubscriptionID = Subscriptions.ID) 
+			JOIN Subscription_Types ON (Subscription_Types.id = Subscriptions.SubscriptionTypeId) 
+			JOIN Channels ON (Subscriptions.ChannelID = Channels.ID) 
+			JOIN Users ON (Users.ID = Channels.UserID) 
+			LEFT JOIN Actions ON (Actions.SubscriptionID=Subscriptions.ID) 
+		WHERE
+			Users.Active=1
+		GROUP BY
+			Subscriptions.ID, 
+			TwitchID, 
+			Subscription_Types.Name, 
+			Subscription_Types.`Field`, 
+			Channels.BroadcasterID, 
+			Callbacks.Slug, 
+			Callbacks.Secret
+		HAVING
+			NumActions > 0
+	');
 	$stmt->execute();
 	$dbrows = array();
 	$found = array();
 	foreach($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-		$dbrows[$row['ID']] = $row;
+		$dbrows[$row['TwitchID']] = $row;
 	}
 	foreach($resp->data as $sub) {
 		if(isset($dbrows[$sub->id])) {
@@ -45,7 +74,9 @@ function twitch_sync_subscriptions() {
 				$stmt->execute(array($sub->id, $rec['Slug']));
 			}
 		} else {
-			// Twitch sub doesnt exist in our DB, ignore.  @TODO remove?
+			$res = twitch_request('https://api.twitch.tv/helix/eventsub/subscriptions', array('id'=>$sub->id), 'DELETE');
+			$stmt = $db->prepare('DELETE FROM Callbacks WHERE TwitchID=? AND Created < DATE_SUB(NOW(), INTERVAL 1 MINUTE)');
+			$stmt->execute(array($sub->id));
 		}
 	}
 	$missing = array_diff_key($dbrows, $found);
@@ -70,21 +101,30 @@ function twitch_sync_subscriptions() {
 				'secret' => $secret
 			)
 		);
+		if(!$sub['Slug']) {
+			$stmt = $db->prepare('INSERT INTO Callbacks SET Slug=?, Secret=?, SubscriptionID=?');
+			$stmt->execute(array($slug, $secret, $sub['ID']));
+		}
 		
 		$res = twitch_request('https://api.twitch.tv/helix/eventsub/subscriptions', $request);
 		if(isset($res->data[0]->id)) {
-			if($sub['Slug']) {
-				// Existing record, update
-				$stmt = $db->prepare('UPDATE Callbacks SET TwitchID=? WHERE Slug=?');
-				$stmt->execute(array($res->data[0]->id, $sub['Slug']));
-			} else {
-				$stmt = $db->prepare('INSERT INTO Callbacks SET Slug=?, Secret=?, TwitchID=?');
-				$stmt->execute(array($slug, $secret, $res->data[0]->id));
-			}
+			$stmt = $db->prepare('UPDATE Callbacks SET TwitchID=? WHERE Slug=?');
+			$stmt->execute(array($res->data[0]->id, $slug));
 		}
 	}
 }
-
+function validate() {
+	$url = 'https://id.twitch.tv/oauth2/validate';
+	$auth_headers = array(
+		'Authorization: OAuth ' . $GLOBALS['_access_token']
+	);
+	$options = array('http'=>array('header'=>array_merge($auth_headers, array('Content-type: application/json'))));
+	$context = stream_context_create($options);
+	$res = file_get_contents($url,0,$context);
+	echo '<pre>';
+	var_dump($res);
+	die();
+}
 function twitch_user_to_id($user) {
 	return 38533468;
 	$url = 'https://api.twitch.tv/kraken/users?login=' . $user;
@@ -103,10 +143,11 @@ function twitch_request($url, $args, $method='POST') {
 	);
 	
 	if($method == 'POST')
-		$context = stream_context_create(array('http'=>array('method'=>'POST','content'=>json_encode($args), 'header' => array_merge($auth_headers, array('Content-type: application/json')))));
+		$options = array('http'=>array('method'=>'POST','content'=>json_encode($args), 'header' => array_merge($auth_headers, array('Content-type: application/json'))));
 	else {
-		$context = stream_context_create(array('http'=>array('method'=>$method, 'header'=>$auth_headers)));
+		$options = array('http'=>array('method'=>$method, 'header'=>$auth_headers));
 		$url = rtrim($url, '?') . (strpos($url,'?')!==FALSE?'&':'?') . http_build_query($args);
 	}
+	$context = stream_context_create($options);
 	return json_decode(file_get_contents($url, 0, $context));
 }

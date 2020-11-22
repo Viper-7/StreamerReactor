@@ -23,6 +23,23 @@ switch($url_parts[0]) {
 
 		foreach($channels as $channel) {
 			?><div class="channel"><div class="header"><h2><?=$channel['Name']?> (http://twitch.tv/<?=$channel['Slug']?>)</h2></div>
+			<?php
+				$stmt = $db->prepare('SELECT ID FROM Twitch_User_Tokens WHERE ChannelID=?');
+				$stmt->execute(array($channel['ID']));
+				$tokens = $stmt->fetchAll();
+				if(count($tokens) == 0) {
+					$url = 'https://id.twitch.tv/oauth2/authorize';
+					$args = array(
+						'client_id' => $clientid,
+						'redirect_uri' => 'https://streamerreactor.viper-7.com/oauth.php',
+						'response_type' => 'token',
+						'scope' => 'channel:read:subscriptions channel:read:hype_train channel:read:redemptions bits:read'
+					);
+					$url .= '?' . http_build_query($args);
+					?><br><br><div style="text-align: center">This channel has not been linked to a twitch account. Event options are limited until you <a href="<?=htmlentities($url)?>">Link Your Account</a></div><?php
+				}
+			?>
+
 <!---			<table cellspacing=0 cellpadding=0 style="margin: 0 auto; width: 600px; border: 0;">
 			<tr><th width="300">Name</th><td><?=$channel['Name']?></td></tr>
 			<tr><th>URL</th><td>http://twitch.tv/<?=$channel['Slug']?></td></tr>
@@ -34,7 +51,6 @@ switch($url_parts[0]) {
 			$stmt2 = $db->prepare('
 				SELECT
 					Subscriptions.ID,
-					Subscriptions.TwitchID,
 					Subscriptions.RewardID,
 					Subscription_Types.ID as TypeID,
 					Subscription_Types.Name,
@@ -99,7 +115,7 @@ switch($url_parts[0]) {
 			<br>
 			<div style="display: none"><input type="hidden" name="subscriptionid" value="<?=$sub['ID']?>" class="event_subid"></div>
 			<div class="form_target2"></div>
-			<div class="cta"><a href="/manage/actions/add" class="add_action_link">Add an Action</a></div><br>
+			<div class="cta"><a href="/manage/actions/add" class="add_action_link">Add an Action</a><a href="/manage/events/del/<?=$sub['ID']?>" data-id="<?=$sub['ID']?>" class="del_event_link">Delete this Event</a></div><br>
 			</div>
 			<?php
 			}
@@ -121,11 +137,25 @@ switch($url_parts[0]) {
 			$stmt->execute(array($_GET['action']));
 		}
 		break;
+	case 'delete_event':
+		$stmt = $db->prepare('SELECT Subscriptions.ID AS ID FROM Channels JOIN Subscriptions ON (Subscriptions.ChannelID = Channels.ID) WHERE Subscriptions.ID=? and Channels.UserID=?');
+		$stmt->execute(array($_GET['event'], $_SESSION['user']));
+		$rows = $stmt->fetchAll();
+		if(count($rows) > 0) {
+			$stmt = $db->prepare('DELETE FROM Actions WHERE SubscriptionID=?');
+			$stmt->execute(array($rows[0]['ID']));
+			$stmt = $db->prepare('DELETE FROM Subscriptions WHERE ID=?');
+			$stmt->execute(array($rows[0]['ID']));
+		}
+		break;		
 	case 'create_channel':
-		$stmt = $db->prepare('INSERT INTO Channels (Name, Slug, UserID) VALUES (?, ?, ?)');
-		$stmt->execute(array($_POST['name'], $_POST['slug'], $_SESSION['user']));
+		$stmt = $db->prepare('INSERT INTO Channels (Name, Slug, UserID, BroadcasterID) VALUES (?, ?, ?, ?)');
+		$stmt->execute(array($_POST['name'], $_POST['slug'], $_SESSION['user'], $_POST['broadcasterid']));
 		return $db->lastInsertId;
 
+		break;
+	case 'sync':
+		twitch_sync_subscriptions();
 		break;
 	case 'create_subscription':
 		if(isset($_POST['channelid'])) {
@@ -153,6 +183,7 @@ switch($url_parts[0]) {
 			return $db->lastInsertId;
 		}
 		
+		twitch_sync_subscriptions();
 		break;
 	case 'services_field':
 		?>
@@ -190,5 +221,16 @@ switch($url_parts[0]) {
 		);
 		
 		echo json_encode($data);
+		break;
+	case 'twitch_auth':
+		$stmt = $db->prepare('SELECT ID FROM Channels WHERE UserID=?');
+		$stmt->execute(array($_SESSION['user']));
+		$rows = $stmt->fetchAll();
+		$channel = $rows[0]['ID'];
+		
+		parse_str($_POST['hash'], $data);
+		
+		$stmt = $db->prepare('INSERT INTO Twitch_User_Tokens (ChannelID, ClientID, AccessToken, Scope) VALUES (?,?,?,?)');
+		$stmt->execute(array($channel, $clientid, $data['access_token'], $data['scope']));
 		break;
 }

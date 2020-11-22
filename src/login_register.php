@@ -26,7 +26,7 @@ if(isset($_POST['email'])) {
 }
 ?>
 <form method="post">
-	<label>Email: <input type="text" name="email" size="30"></label><br>
-	<label>Password: <input type="password" name="password" size="30"></label><br>
+	<label><span class="field">Email:</span> <input type="text" name="email" size="30"></label><br>
+	<label><span class="field">Password:</span> <input type="password" name="password" size="30"></label><br>
 	<input type="submit" value="Login/Register">
 </form>

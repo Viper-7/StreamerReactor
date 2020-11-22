@@ -30,6 +30,9 @@ include 'src/twitch_auth.php';
 	div.cta {
 		text-align: center;
 	}
+	.cta a {
+		margin: 0 48px;
+	}
 	div.cta a, div.cta a:hover, div.cta a:active, div.cta a:visited {
 		color: #000;
 	}
@@ -81,24 +84,33 @@ include 'src/twitch_auth.php';
 <body>
 <div class="content">
 <div id="channel_list"></div>
-<br><br><div class="cta"><a href="/manage/channels/add" id="add_channel_link">Add a channel</a></div><br>
+<br>
 <br>
 <div id="add_channel" style="display: none;">
 	<form method="post" id="add_channel_form">
 	<label><span class="field">Name:</span> <input type="text" name="name" value="" size="40"></label><br>
 	<label><span class="field">URL:</span> http://twitch.tv/<input type="text" name="slug" size="15"></label><br>
+	<label><span class="field">Broadcaster ID:</span> <input type="text" name="broadcasterid" size="20"></label><br>
 	<br>
-	<input type="submit" value="Create Channel">
+	<input type="submit" value="Create Channel"> <input type="button" name="cancel" class="cancel" value="Cancel">
 	</form>
 </div>
+<br><div class="cta"><a href="/manage/channels/add" id="add_channel_link">Add a channel</a></div><br>
 <div id="add_event" style="display: none;">
 	<form method="post" class="add_event_form">
 	<label><span class="field">Type:</span> <select name="subtypeid" size="1">
 	<?php
-	$stmt = $db->prepare('SELECT ID, Name FROM Subscription_Types');
+	$stmt = $db->prepare('SELECT ID, Name, NeedsAccess FROM Subscription_Types');
 	$stmt->execute();
 	$subs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+	$stmt = $db->prepare('SELECT Twitch_User_Tokens.ID FROM Twitch_User_Tokens JOIN Channels ON (Twitch_User_Tokens.ChannelID = Channels.ID) WHERE Channels.UserID=?');
+	$stmt->execute(array($_SESSION['user']));
+	$rights = $stmt->fetchAll(PDO::FETCH_ASSOC);
+	
+	$hasrights = count($rights) == 1;
 	foreach($subs as $sub) {
+		if($sub['NeedsAccess'] && !$hasrights) continue;
 		?>
 		<option value="<?=$sub['ID']?>"><?=$sub['Name']?></option>
 		<?php
@@ -106,7 +118,7 @@ include 'src/twitch_auth.php';
 	?>
 	</select></label><br>
 	<br>
-	<input type="submit" value="Create Event">
+	<input type="submit" value="Create Event"> <input type="button" name="cancel" class="cancel" value="Cancel">
 	</form>
 </div>
 <div id="add_action" style="display: none;">
@@ -169,11 +181,17 @@ include 'src/twitch_auth.php';
 					var el = $(this).parent().parent().find('.form_target');
 					var id = $(this).parent().parent().find('input.event_channelid');
 					el.html($('#add_event').html());
+					$('.add_subscription_link').hide();
 					el.find('form').append(id.parent().html());
+					el.find('input.cancel').click(function(e) {
+						el.hide();
+						$('.add_subscription_link').show();
+						e.preventDefault();
+					});
 					el.show();
 					
 					$('.add_event_form').ajaxForm({url: '/ajax/create_subscription', type: 'post', beforeSubmit: function() {
-						$('.add_subscription_link').hide();
+						
 					}, success: function() {
 						$('.form_target').html('');
 						$('.add_subscription_link').show();
@@ -188,7 +206,12 @@ include 'src/twitch_auth.php';
 					});
 					e.preventDefault();
 				});
-				
+				$('.del_event_link').click(function(e) {
+					$.get('/ajax/delete_event', {event: $(this).attr('data-id')}, function() {
+						refreshChannels();
+					});
+					e.preventDefault();
+				})
 				$('.add_action_link').click(function(e) {
 					var el = $(this).parent().parent().find('.form_target2');
 					var id = $(this).parent().parent().find('input.event_subid');
@@ -283,12 +306,21 @@ include 'src/twitch_auth.php';
 		
 		$('#add_channel_link').click(function(e) {
 			$('#add_channel').show();
+			$('.add_channel_link').hide();
 			return e.preventDefault();
 		});
 		
+		el = $('#add_channel');
+		el.find('input.cancel').click(function(e) {
+			el.hide();
+			$('.add_channel_link').show();
+			e.preventDefault();
+		});
+
 		$('#add_channel_form').ajaxForm({url: '/ajax/create_channel', type: 'post', beforeSubmit: function() {
 			$('#add_channel').hide();
 		}, success: function() {
+			$('.add_channel_link').show();
 			refreshChannels();
 		}});
 		refreshChannels();
