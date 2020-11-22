@@ -16,10 +16,11 @@ Once StreamerReactor receives an event, it can trigger any number of actions, ea
 * IRC Chatrooms
 * Twitch Chat
 * HTTP/S requests
-* MQTT Servers
-* ZeroMQ Sockets
-* Remote Websocket
+* MQTT Servers (TODO)
+* ZeroMQ Sockets (TODO)
+* Remote Websocket (TODO)
 
+With more endpoints planned for the future!
 
 
 
