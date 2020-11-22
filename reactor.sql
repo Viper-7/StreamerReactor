@@ -20,7 +20,6 @@ CREATE TABLE Channels (
 );
 CREATE TABLE Subscriptions (
 	ID			INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-	TwitchID		VARCHAR(65),
 	ChannelID		INT,
 	SubscriptionTypeID	INT,
 	Created			DATETIME DEFAULT NOW(),
@@ -46,8 +45,8 @@ INSERT INTO `Subscription_Types` (`ID`, `Name`, `Field`, `Description`, `Templat
 
 CREATE TABLE Callbacks (
 	Slug		VARCHAR(100) NOT NULL PRIMARY KEY,
+	TwitchID	VARCHAR(65),
 	SubscriptionID	INT NOT NULL,
-	Challenge	VARCHAR(255),
 	Secret		VARCHAR(255),
 	Created		DATETIME DEFAULT NOW()
 );
@@ -91,3 +90,11 @@ CREATE TABLE Twitch_Tokens (
 	Scope		VARCHAR(4000)
 );
 
+CREATE TABLE Twitch_User_Tokens (
+	ID		INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	ChannelID	INT NOT NULL,
+	ClientID	VARCHAR(255),
+	AccessToken	VARCHAR(255),
+	Expires		DATETIME,
+	Scope		VARCHAR(4000)
+);
