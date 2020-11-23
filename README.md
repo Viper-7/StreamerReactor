@@ -32,6 +32,14 @@ Note that to read information on Subscriptions, Bits, Channel Points and Hype Tr
 The main shortcoming right now is the requirement of the broadcaster_user_id value, which is generally considered public information, but Twitch do not appear to offer an API for it any more. I have been getting the ID by visiting the stream on twitch, opening the browser's developer tools, switching to the Network tab, pressing f5 to reload the page, looking for the 'gql' requests to twitch, and clicking through them, looking at the Response tab, until i find one that starts like [{"data":{"user":{"id":"25725272". This 25725272 would be the Broadcaster ID the system asks you when creating a channel.
 This is only temporary, if anyone knows a proper solution for this without requiring permission to manage a user's channel, please get in touch :)
 
+---
+
+# Self Hosting Instructions
+
+The system uses native PHP and MySQL with no dependencies aside from the PDO_MySQL driver (available on all systems with MySQL). You can use any webserver you like, all requests should be rewritten to index.php. Please remember that the system *must* be running publically on port 443 for Twitch to communicate with you.
+A Reactor.sql file is included for setting up the database. config.php will need the database name, username, password, along with a Client ID and Secret for a Twitch App, which you can generate at https://dev.twitch.tv/console/apps
+
+---
 
 # Todo
 
