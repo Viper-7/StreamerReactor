@@ -128,7 +128,8 @@ include 'src/twitch_auth.php';
 	<form method="post" class="add_action_form">
 	<label><span class="field">Type:</span> <select name="servicetypeid" size="1" class="service_type_id">
 	<?php
-	$stmt = $db->prepare('SELECT ID, Name FROM Action_Service_Types WHERE Public=1');
+	$stmt = $db->prepare('SELECT ID, Name FROM Action_Service_Types WHERE Public=1 ORDER BY Action_Service_Types.FieldOrder
+');
 	$stmt->execute();
 	$types = $stmt->fetchAll(PDO::FETCH_ASSOC);
 	foreach($types as $type) {
@@ -151,14 +152,17 @@ include 'src/twitch_auth.php';
 		}
 		?>
 		</select></label>
-	</div> <a href="" class="add_service add_service_link">New Service</a><br>
+	</div> <a href="" class="add_service add_service_link">New Service<br></a>
 	<div class="addservice_field_container">
 	<label><span class="field addservice_field">Channel:</span> <input type="text" name="field" placeholder="#kappastream"></label><br>
 	</div>
-	<label><span class="field addservice_template">Template:</span> <input type="text" name="valuetemplate" size="60" placeholder="#user_name# just subscribed!" value="#user_name#"></label><br>
+	<label><span class="field">Send as JSON:</span> <select name="SendAsJSON" class="addservice_sendasjson"><option value="1">Yes</option><option value="0" selected>No</option></select></label><br>
+	<div class="template_fields">
+	<label><span class="field addservice_template">Template:</span> <input type="text" name="valuetemplate" size="60" placeholder="#user_name# just subscribed!"></label><br>
 	<span style="margin-left: 20%;" class="note">#tags# will be replaced as below</span>
 	<div class="template_description"></div>
 	<br>
+	</div>
 	<input type="submit" value="Create Action"> <input type="button" name="cancel" class="cancel" value="Cancel">
 	</form>
 </div>
@@ -243,12 +247,26 @@ include 'src/twitch_auth.php';
 					$('.service_type_id').change(function(e) {
 						var el2 = $(this).parent().parent().find('.service_target');
 						
-						$.get('/ajax/services_field', {typeid: $(this).val()}, function(data) {
-							el2.html(data);
-						}, 'text');
+						if($(this).val() == 4) {
+							el2.html('<input type="hidden" name="ActionServiceID" value="1">');
+							$('.addservice_field_container').hide();
+							$('.addservice_sendasjson').change(function() {
+								if($(this).val() == 1) {
+									$('.template_fields').hide();
+								} else {
+									$('.template_fields').show();
+								}
+							});
+						} else {
+							$.get('/ajax/services_field', {typeid: $(this).val()}, function(data) {
+								el2.html(data);
+								$('.addservice_field_container').show();
+							}, 'text');
+						}
+						
 						$.get('/ajax/action_metadata', {typeid: $(this).val(), subid: id.val()}, function(data) {
 							el2.parent().parent().find('.template_description').html(data.template_help);
-							if(data.type_id == 4 && data.mqtt > 0) { 
+							if(data.type_id == 4) { 
 								$('.add_service_link').hide();
 							} else {
 								$('.add_service_link').show();
@@ -256,18 +274,28 @@ include 'src/twitch_auth.php';
 							$('.addservice_field').text(data.field_name + ':');
 						}, 'json');
 						
-						if($(this).val() == 4) {
-							$('.addservice_field_container').hide();
-						} else {
-							$('.addservice_field_container').show();
-						}
 					});
 					
 					var el2 = el.find('.service_target');
-					$.get('/ajax/services_field', {typeid: $('.service_type_id').val()}, function(data) {
-						el2.html(data);
-					}, 'text');
-
+//					if($(this).val() == 4) {
+						el2.html('<input type="hidden" name="ActionServiceID" value="1">');
+						$('.addservice_field_container').hide();
+						$('.template_fields').show();
+						$('.add_service_link').hide();
+						$('.addservice_sendasjson').change(function() {
+							if($(this).val() == 1) {
+								$('.template_fields').hide();
+							} else {
+								$('.template_fields').show();
+							}
+						});
+/*					} else {
+						$.get('/ajax/services_field', {typeid: $('.service_type_id').val()}, function(data) {
+							el2.html(data);
+							$('.addservice_field_container').show();
+						}, 'text');
+					}
+*/
 					$('.add_action_form').ajaxForm({url: '/ajax/create_action', type: 'post', beforeSubmit: function() {
 						
 					}, success: function() {

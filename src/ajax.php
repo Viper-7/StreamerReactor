@@ -80,6 +80,7 @@ switch($url_parts[0]) {
 						Action_Services.Username,
 						Action_Services.Password,
 						Actions.`Field`,
+						Actions.SendAsJSON,
 						Actions.ValueTemplate,
 						Action_Service_Types.Name as TypeName,
 						Action_Service_Types.Handler as Handler
@@ -89,6 +90,8 @@ switch($url_parts[0]) {
 						JOIN Action_Service_Types ON (Action_Service_Types.ID = Action_Services.ServiceTypeID)
 					WHERE
 						Actions.SubscriptionID=?
+					ORDER BY
+						Action_Service_Types.FieldOrder
 				');
 				$stmt3->execute(array($sub['ID']));
 				$actions = $stmt3->fetchAll(PDO::FETCH_ASSOC);
@@ -109,7 +112,11 @@ switch($url_parts[0]) {
 								break;
 							case 'MQTT':
 								echo "Publish a message on MQTT on topic event/{$channel['BroadcasterID']}/{$sub['Code']}<br>";
-								echo "<i>{$action['ValueTemplate']}</i><br>";
+								if($action['SendAsJSON']) {
+									echo "<i>{JSON Object}</i><br>";
+								} else {
+									echo "<i>{$action['ValueTemplate']}</i><br>";
+								}
 								break;
 						}
 						?><br>
@@ -157,7 +164,7 @@ switch($url_parts[0]) {
 		$user = twitch_get_user($_POST['slug'])[0];
 		$stmt = $db->prepare('INSERT INTO Channels (Name, Slug, UserID, BroadcasterID, ProfileImageURL) VALUES (?, ?, ?, ?, ?)');
 		$stmt->execute(array($user->display_name ?: $user->login, $_POST['slug'], $_SESSION['user'], $user->id, $user->profile_image_url ?: ''));
-		return $db->lastInsertId;
+		return $db->lastInsertId();
 
 		break;
 	case 'sync':
@@ -167,7 +174,7 @@ switch($url_parts[0]) {
 		if(isset($_POST['channelid'])) {
 			$stmt = $db->prepare('INSERT INTO Subscriptions (ChannelID, SubscriptionTypeID) VALUES (?, ?)');
 			$stmt->execute(array($_POST['channelid'], $_POST['subtypeid']));
-			$id = $db->lastInsertId;
+			$id = $db->lastInsertId();
 		}
 		
 		return $id;
@@ -177,16 +184,16 @@ switch($url_parts[0]) {
 		if(isset($_POST['typeid'])) {
 			$stmt = $db->prepare('INSERT INTO Action_Services (UserID, ServiceTypeID, Host, Port, Path, Username, `Password`) VALUES (?,?,?,?,?,?,?)');
 			$stmt->execute(array($_SESSION['user'], $_POST['typeid'], $_POST['host'] ?: 'irc.chat.twitch.tv', $_POST['port'] ?: '', $_POST['path'], $_POST['newur'], $_POST['newpr']));
-			return $db->lastInsertId;
+			return $db->lastInsertId();
 		}
 		
 		break;
 	case 'create_action':
 		if(isset($_POST['ActionServiceID'])) {
-			$stmt = $db->prepare('INSERT INTO Actions (ActionServiceID, SubscriptionID, `Field`, ValueTemplate) VALUES (?, ?, ?, ?)');
-			$stmt->execute(array($_POST['ActionServiceID'], $_POST['subscriptionid'], $_POST['field'], $_POST['valuetemplate']));
+			$stmt = $db->prepare('INSERT INTO Actions (ActionServiceID, SubscriptionID, `Field`, ValueTemplate, SendAsJSON) VALUES (?, ?, ?, ?, ?)');
+			$stmt->execute(array($_POST['ActionServiceID'], $_POST['subscriptionid'], $_POST['field'], $_POST['valuetemplate'], $_POST['SendAsJSON']));
 			twitch_sync_subscriptions();
-			return $db->lastInsertId;
+			return $db->lastInsertId();
 		}
 		
 		break;

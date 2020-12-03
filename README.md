@@ -3,8 +3,9 @@
 A simple integration tool to make the twitch.tv EventSub API much more approachable for streamers and enthusiasts.
 
 As twitch.tv requires EventSub applications to provide public HTTPS access on port 443, many users struggle with using the API from home.
-StreamerReactor has been designed as a cloud appliance, with no such requirements, and is freely available to use at https://streamerreactor.viper-7.com/
+StreamerReactor has been designed as a cloud appliance, with no such requirements, and is <strong>freely available to use at https://streamerreactor.viper-7.com/</strong>
 
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/kLpcATTftNA/0.jpg)](https://www.youtube.com/watch?v=kLpcATTftNA)
 
 The list of supported events will expand as twitch provides more through the EventSub API. Right now it can listen for:
 

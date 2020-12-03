@@ -123,7 +123,6 @@ function twitch_sync_subscriptions() {
 			$stmt->execute(array($slug, $secret, $sub['ID']));
 		}
 		
-		var_dump($request);
 		$res = twitch_request('https://api.twitch.tv/helix/eventsub/subscriptions', $request);
 		if(isset($res->data[0]->id)) {
 			$stmt = $db->prepare('UPDATE Callbacks SET TwitchID=? WHERE Slug=?');

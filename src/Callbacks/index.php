@@ -4,17 +4,22 @@ if(count($url_parts) < 1) die('Callback Handler Root');
 
 function rendertemplate($template) {
 	$vars = $GLOBALS['vars'];
+	$data = array();
 	foreach($vars as $key => $value) {
-		if(!is_object($value) && !is_resource($value) && !is_array($value))
+		if(!is_object($value) && !is_resource($value) && !is_array($value)) {
 			$template = str_replace("#{$key}#", $value, $template);
+			$data[$key] = $value;
+		}
 	}
+	if($data['SendAsJSON']) return json_encode($data);
+	
 	return $template;
 }
 function trigger_service($event, $action, $subscription_id, $message_id, $message_timestamp, $service) {
 	$db = $GLOBALS['db'];
-	extract($event);
+	extract((array)$event);
 	unset($event);
-	extract($action);
+	extract((array)$action);
 	unset($action);
 	if(isset($reward)) {
 		$reward_title = $reward->title;
@@ -51,7 +56,8 @@ foreach($rows as $row) {
 				SELECT
 					Actions.ID as action_id, 
 					ActionServiceID as action_service_id, 
-					`Field` as `field`, 
+					Actions.`Field` as `field`, 
+					Actions.SendAsJSON,
 					ValueTemplate as value_template, 
 					Action_Service_Types.Name as action_service_type, 
 					Action_Service_Types.Handler as action_service_handler,
@@ -65,13 +71,15 @@ foreach($rows as $row) {
 					Actions 
 					JOIN Action_Services ON (Actions.ActionServiceID = Action_Services.ID) 
 					JOIN Action_Service_Types ON (Action_Service_Types.ID = Action_Services.ServiceTypeID) 
-					JOIN Subscriptions ON (Actions.SubscriptionID = Subscriptions.ID)
-					JOIN Subscription_Types ON (Subscription_Types.ID = Subscriptions.SubscriptionTypeID)
+					LEFT JOIN Subscriptions ON (Actions.SubscriptionID = Subscriptions.ID)
+					LEFT JOIN Subscription_Types ON (Subscription_Types.ID = Subscriptions.SubscriptionTypeID)
 				WHERE 
 					Actions.SubscriptionID=?
 			');
 			$stmt->execute(array($row['SubscriptionID']));
 			$row2 = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			if(!isset($row2[0]))
+				trigger_error($stmt->errorInfo(), E_USER_ERROR);
 			$keys = array('Host','Port','Path','Username','Password');
 			$service = array_intersect_key($row2[0], array_flip($keys));
 			trigger_service($event, $row2[0], $row['SubscriptionID'], $_SERVER['HTTP_TWITCH_EVENTSUB_MESSAGE_ID'], $_SERVER['HTTP_TWITCH_EVENTSUB_MESSAGE_TIMESTAMP'], $service);
