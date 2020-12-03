@@ -27,6 +27,13 @@ if(count($rows) > 0) {
 function twitch_sync_subscriptions() {
 	$db = $GLOBALS['db'];
 	
+	$lockfile = '/tmp/twitch_synclock';
+	$fp = @fopen($lockfile, 'x');
+	if(!$fp) {
+		if(filemtime($lockfile) < time() - 3600)
+			unlink($lockfile);
+		return;
+	}
 	$resp = twitch_request('https://api.twitch.tv/helix/eventsub/subscriptions', array(), 'GET');
 	$stmt = $db->prepare('
 		SELECT 
@@ -64,19 +71,27 @@ function twitch_sync_subscriptions() {
 	foreach($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
 		$dbrows[$row['TwitchID']] = $row;
 	}
+	$updates = 0;
+	$deletions = 0;
+	$additions = 0;
+	$unchanged = 0;
 	foreach($resp->data as $sub) {
 		if(isset($dbrows[$sub->id])) {
 			// Update dbrow if required
 			$rec = $dbrows[$sub->id];
 			$found[$sub->id] = $rec;
 			if($sub->id != $rec['TwitchID']) {
+				$updates++;
 				$stmt = $db->prepare('UPDATE Callbacks SET TwitchID=? WHERE Slug=?');
 				$stmt->execute(array($sub->id, $rec['Slug']));
+			} else {
+				$unchanged++;
 			}
 		} else {
 			$res = twitch_request('https://api.twitch.tv/helix/eventsub/subscriptions', array('id'=>$sub->id), 'DELETE');
 			$stmt = $db->prepare('DELETE FROM Callbacks WHERE TwitchID=? AND Created < DATE_SUB(NOW(), INTERVAL 1 MINUTE)');
 			$stmt->execute(array($sub->id));
+			$deletions++;
 		}
 	}
 	$missing = array_diff_key($dbrows, $found);
@@ -87,6 +102,8 @@ function twitch_sync_subscriptions() {
 		
 		if(!$slug) $slug = uniqid($sub['ID'], true);
 		if(!$secret) $secret = uniqid($sub['ID'], true);
+		
+		$additions++;
 		
 		// New sub, submit to API
 		$request = array(
@@ -106,12 +123,17 @@ function twitch_sync_subscriptions() {
 			$stmt->execute(array($slug, $secret, $sub['ID']));
 		}
 		
+		var_dump($request);
 		$res = twitch_request('https://api.twitch.tv/helix/eventsub/subscriptions', $request);
 		if(isset($res->data[0]->id)) {
 			$stmt = $db->prepare('UPDATE Callbacks SET TwitchID=? WHERE Slug=?');
 			$stmt->execute(array($res->data[0]->id, $slug));
 		}
 	}
+	
+	fclose($fp);
+	unlink($lockfile);
+	echo "Sync complete. {$additions} additions, {$updates} updates, {$deletions} deletions, {$unchanged} unchanged.";
 }
 function validate() {
 	$url = 'https://id.twitch.tv/oauth2/validate';
@@ -125,15 +147,18 @@ function validate() {
 	var_dump($res);
 	die();
 }
-function twitch_user_to_id($user) {
-	return 38533468;
-	$url = 'https://api.twitch.tv/kraken/users?login=' . $user;
+function twitch_get_user($user) {
+	$url = 'https://api.twitch.tv/helix/users?login=' . $user;
 	$auth_headers = array(
 		'Client-ID: '. $GLOBALS['clientid'],
 		'Authorization: Bearer ' . $GLOBALS['_access_token']
 	);
 	$context = stream_context_create(array('http'=>array('header'=>$auth_headers)));
-	return json_decode(file_get_contents($url, 0, $context));
+	$res = json_decode(file_get_contents($url, 0, $context));
+	return $res->data;
+}
+function twitch_user_to_id($user) {
+	return twitch_get_user($user)[0]->id;
 }
 
 function twitch_request($url, $args, $method='POST') {
@@ -149,5 +174,6 @@ function twitch_request($url, $args, $method='POST') {
 		$url = rtrim($url, '?') . (strpos($url,'?')!==FALSE?'&':'?') . http_build_query($args);
 	}
 	$context = stream_context_create($options);
+
 	return json_decode(file_get_contents($url, 0, $context));
 }

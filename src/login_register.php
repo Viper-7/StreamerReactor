@@ -1,3 +1,7 @@
+<!doctype html>
+<html>
+<head>
+<title>StreamReactor</title>
 <?php
 if(isset($_POST['email'])) {
 	$hash = hash('sha256', $_POST['password']);
@@ -25,8 +29,22 @@ if(isset($_POST['email'])) {
 	}
 }
 ?>
+<style type="text/css">
+	html, body {
+		max-width: 800px;
+		margin: 24px auto;
+	}
+	span.field {
+		display: inline-block;
+		width: 150px;
+	}
+</style>
+</head>
+<body>
 <form method="post">
 	<label><span class="field">Email:</span> <input type="text" name="email" size="30"></label><br>
 	<label><span class="field">Password:</span> <input type="password" name="password" size="30"></label><br>
 	<input type="submit" value="Login/Register">
 </form>
+</body>
+</html>

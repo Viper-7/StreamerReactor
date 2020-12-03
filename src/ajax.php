@@ -10,6 +10,7 @@ switch($url_parts[0]) {
 				Channels.Name as Name,
 				Slug,
 				BroadcasterID,
+				ProfileImageURL,
 				Channels.Created as Created
 			FROM
 				Channels
@@ -22,7 +23,7 @@ switch($url_parts[0]) {
 		$channels = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 		foreach($channels as $channel) {
-			?><div class="channel"><div class="header"><h2><?=$channel['Name']?> (http://twitch.tv/<?=$channel['Slug']?>)</h2></div>
+			?><div class="channel"><div class="header"><h2><a href="http://twitch.tv/<?=$channel['Slug']?>" style="text-decoration: none; color: #000;"><?=$channel['Name']?> <img src="<?=$channel['ProfileImageURL']?>" style="border:0; margin: 0; padding: 0; margin-top: -6px; max-width: 38px; max-height: 38px; vertical-align: middle;"/></a></h2></div>
 			<?php
 				$stmt = $db->prepare('SELECT ID FROM Twitch_User_Tokens WHERE ChannelID=?');
 				$stmt->execute(array($channel['ID']));
@@ -54,7 +55,8 @@ switch($url_parts[0]) {
 					Subscriptions.RewardID,
 					Subscription_Types.ID as TypeID,
 					Subscription_Types.Name,
-					Subscription_Types.Field
+					Subscription_Types.Field,
+					Subscription_Types.Code
 				FROM
 					Subscriptions
 					JOIN Subscription_Types ON (Subscriptions.SubscriptionTypeID = Subscription_Types.ID)
@@ -105,7 +107,10 @@ switch($url_parts[0]) {
 								echo "Send a message on IRC ({$action['Host']}) to channel {$action['Field']}<br>";
 								echo "<i>{$action['ValueTemplate']}</i><br>";
 								break;
-								
+							case 'MQTT':
+								echo "Publish a message on MQTT on topic event/{$channel['BroadcasterID']}/{$sub['Code']}<br>";
+								echo "<i>{$action['ValueTemplate']}</i><br>";
+								break;
 						}
 						?><br>
 					</div>
@@ -149,8 +154,9 @@ switch($url_parts[0]) {
 		}
 		break;		
 	case 'create_channel':
-		$stmt = $db->prepare('INSERT INTO Channels (Name, Slug, UserID, BroadcasterID) VALUES (?, ?, ?, ?)');
-		$stmt->execute(array($_POST['name'], $_POST['slug'], $_SESSION['user'], $_POST['broadcasterid']));
+		$user = twitch_get_user($_POST['slug'])[0];
+		$stmt = $db->prepare('INSERT INTO Channels (Name, Slug, UserID, BroadcasterID, ProfileImageURL) VALUES (?, ?, ?, ?, ?)');
+		$stmt->execute(array($user->display_name ?: $user->login, $_POST['slug'], $_SESSION['user'], $user->id, $user->profile_image_url ?: ''));
 		return $db->lastInsertId;
 
 		break;
@@ -164,14 +170,13 @@ switch($url_parts[0]) {
 			$id = $db->lastInsertId;
 		}
 		
-		twitch_sync_subscriptions();
 		return $id;
 		
 		break;
 	case 'create_service':
 		if(isset($_POST['typeid'])) {
 			$stmt = $db->prepare('INSERT INTO Action_Services (UserID, ServiceTypeID, Host, Port, Path, Username, `Password`) VALUES (?,?,?,?,?,?,?)');
-			$stmt->execute(array($_SESSION['user'], $_POST['typeid'], $_POST['host'], $_POST['port'], $_POST['path'], $_POST['username'], $_POST['password']));
+			$stmt->execute(array($_SESSION['user'], $_POST['typeid'], $_POST['host'] ?: 'irc.chat.twitch.tv', $_POST['port'] ?: '', $_POST['path'], $_POST['newur'], $_POST['newpr']));
 			return $db->lastInsertId;
 		}
 		
@@ -180,10 +185,10 @@ switch($url_parts[0]) {
 		if(isset($_POST['ActionServiceID'])) {
 			$stmt = $db->prepare('INSERT INTO Actions (ActionServiceID, SubscriptionID, `Field`, ValueTemplate) VALUES (?, ?, ?, ?)');
 			$stmt->execute(array($_POST['ActionServiceID'], $_POST['subscriptionid'], $_POST['field'], $_POST['valuetemplate']));
+			twitch_sync_subscriptions();
 			return $db->lastInsertId;
 		}
 		
-		twitch_sync_subscriptions();
 		break;
 	case 'services_field':
 		?>
@@ -214,10 +219,15 @@ switch($url_parts[0]) {
 		$stmt = $db->prepare('SELECT TemplateHelp FROM Subscription_Types JOIN Subscriptions ON (Subscriptions.SubscriptionTypeID = Subscription_Types.ID) WHERE Subscriptions.ID=?');
 		$stmt->execute(array($_GET['subid']));
 		$rows2 = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$stmt = $db->prepare('SELECT COUNT(*) as num FROM Action_Services WHERE ServiceTypeID=4 AND UserID=?');
+		$stmt->execute(array($_SESSION['user']));
+		$rows3 = $stmt->fetchAll(PDO::FETCH_ASSOC);
 		
 		$data = array(
 			'template_help' => $rows2[0]['TemplateHelp'],
-			'field_name' => $rows[0]['FieldName']
+			'field_name' => $rows[0]['FieldName'],
+			'type_id' => $_GET['typeid'],
+			'mqtt' => $rows3[0]['num']
 		);
 		
 		echo json_encode($data);
@@ -232,5 +242,26 @@ switch($url_parts[0]) {
 		
 		$stmt = $db->prepare('INSERT INTO Twitch_User_Tokens (ChannelID, ClientID, AccessToken, Scope) VALUES (?,?,?,?)');
 		$stmt->execute(array($channel, $clientid, $data['access_token'], $data['scope']));
+		break;
+	case 'create_mqtt':
+		$stmt = $db->prepare('SELECT BroadcasterID FROM Channels WHERE UserID=?');
+		$stmt->execute(array($_SESSION['user']));
+		$rows = $stmt->fetchAll();
+		$user = $rows[0]['BroadcasterID'];
+		$pass = preg_replace('/\W+/', '', base64_encode(openssl_random_pseudo_bytes(8)));
+		
+		$stmt = $db->prepare('INSERT INTO Action_Services (UserID, ServiceTypeID, Host, Port, Username, Password) VALUES (?,?,?,?,?,?)');
+		$stmt->execute(array($_SESSION['user'], 4, '127.0.0.1', '1883', $user, $pass));
+		exec('/usr/bin/addmosquittouser ' . escapeshellarg($user) . ' ' . escapeshellarg($pass));
+		
+		?>
+		<label><span class="field">Host:</span> streamerreactor.viper-7.com</label><br>
+		<label><span class="field">Port:</span> 1883</label><br>
+		<label><span class="field">Username:</span> <?=$user?></label><br>
+		<label><span class="field">Password:</span> <?=$pass?></label><br>
+		<br>
+		Please write down this username and password! You cannot recover these details, and will need to generate a new login.<br>
+		<input type="button" class="dismissmqtt" value="Dismiss"/><br>
+		<?php
 		break;
 }

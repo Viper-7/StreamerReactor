@@ -79,6 +79,10 @@ include 'src/twitch_auth.php';
 		white-space: pre;
 		font-family: monospace;
 	}
+	span.note {
+		color: #666;
+		font-size: small;
+	}
 </style>
 </head>
 <body>
@@ -88,10 +92,8 @@ include 'src/twitch_auth.php';
 <br>
 <div id="add_channel" style="display: none;">
 	<form method="post" id="add_channel_form">
-	<label><span class="field">Name:</span> <input type="text" name="name" value="" size="40"></label><br>
-	<label><span class="field">URL:</span> http://twitch.tv/<input type="text" name="slug" size="15"></label><br>
-	<label><span class="field">Broadcaster ID:</span> <input type="text" name="broadcasterid" size="20"></label><br>
-	<br>
+	<label><span class="field">URL:</span> http://twitch.tv/<input type="text" name="slug" size="15" placeholder="KappaStream"></label><br>
+	<br><br>
 	<input type="submit" value="Create Channel"> <input type="button" name="cancel" class="cancel" value="Cancel">
 	</form>
 </div>
@@ -150,8 +152,11 @@ include 'src/twitch_auth.php';
 		?>
 		</select></label>
 	</div> <a href="" class="add_service add_service_link">New Service</a><br>
-	<label><span class="field addservice_field">Channel:</span> <input type="text" name="field"></label><br>
-	<label><span class="field addservice_template">Template:</span> <input type="text" name="valuetemplate" size="60"></label><br>
+	<div class="addservice_field_container">
+	<label><span class="field addservice_field">Channel:</span> <input type="text" name="field" placeholder="#kappastream"></label><br>
+	</div>
+	<label><span class="field addservice_template">Template:</span> <input type="text" name="valuetemplate" size="60" placeholder="#user_name# just subscribed!" value="#user_name#"></label><br>
+	<span style="margin-left: 20%;" class="note">#tags# will be replaced as below</span>
 	<div class="template_description"></div>
 	<br>
 	<input type="submit" value="Create Action"> <input type="button" name="cancel" class="cancel" value="Cancel">
@@ -160,13 +165,16 @@ include 'src/twitch_auth.php';
 <div id="add_service" style="display: none;">
 	<form method="post" class="add_service_form">
 	<input type="hidden" name="typeid" class="typeid">
-	<label><span class="field">Host:</span> <input type="text" name="host"></label><br>
-	<label><span class="field">Port:</span> <input type="text" name="port"></label><br>
-	<div class="addservice_path"><label><span class="field">Path:</span> <input type="text" name="path"></label></div>
-	<label><span class="field">Username:</span> <input type="text" name="username"></label><br>
-	<label><span class="field">Password:</span> <input type="password" name="password"></label><br>
+	<div class="notmqttfields">
+	<label><span class="field">Host:</span> <input type="text" name="host" placeholder="irc.chat.twitch.tv" class="irchost"></label><br>
+	<label><span class="field">Port:</span> <input type="text" name="port"><span class="note"> you can leave this blank</span></label><br>
+	<div class="addservice_path"><label><span class="field">Path:</span> <input type="text" name="path" placeholder="/handler.php"></label></div>
+	<label><span class="field">Username:</span> <input type="text" name="newur" placeholder="KappaBot" autocomplete="chrome-off"><span class="note"> (optional)</span></label><br>
+	<label><span class="field">Password:</span> <input type="password" name="newpr" placeholder="oauth:df9879dfs87g98s7df123ds3" autocomplete="new-password"><span class="note notirchelp"> (optional)</span><span class="note irchelp"> <a href="https://twitchapps.com/tmi/" target="_blank">Click Here</a> to generate a password for twitch chat</span></label><br>
 	<br>
 	<input type="submit" value="Create Service"> <input type="button" name="cancel" class="cancel" value="Cancel">
+	</div>
+	<div class="mqttfields" style="display: none;"></div>
 	</form>
 </div>
 </div>
@@ -240,8 +248,19 @@ include 'src/twitch_auth.php';
 						}, 'text');
 						$.get('/ajax/action_metadata', {typeid: $(this).val(), subid: id.val()}, function(data) {
 							el2.parent().parent().find('.template_description').html(data.template_help);
+							if(data.type_id == 4 && data.mqtt > 0) { 
+								$('.add_service_link').hide();
+							} else {
+								$('.add_service_link').show();
+							}
 							$('.addservice_field').text(data.field_name + ':');
 						}, 'json');
+						
+						if($(this).val() == 4) {
+							$('.addservice_field_container').hide();
+						} else {
+							$('.addservice_field_container').show();
+						}
 					});
 					
 					var el2 = el.find('.service_target');
@@ -272,8 +291,30 @@ include 'src/twitch_auth.php';
 						el3.parent().find('.typeid').val(typeid);
 						if(typeid == 1) {
 							el3.parent().find('.addservice_path').hide();
+							el3.parent().find('.irchelp').show();
+							el3.parent().find('.notirchelp').hide();
+							$('.irchost').attr('placeholder', 'irc.chat.twitch.tv');
+						} else if(typeid == 4) {
+							$.post('/ajax/create_mqtt', {}, function(res) {
+								el3.parent().find('.notmqttfields').hide();
+								el3.parent().find('.mqttfields').html(res);
+								el3.parent().find('.mqttfields').show();
+								$('.dismissmqtt').click(function() {
+									$('.form_target3').html('');
+									$('.form_target3').hide();
+									
+									var el2 = $('.service_target');
+									
+									$.get('/ajax/services_field', {typeid: $(this).val()}, function(data) {
+										el2.html(data);
+									}, 'text');
+								})
+							}, 'text');
 						} else {
 							el3.parent().find('.addservice_path').show();
+							el3.parent().find('.irchelp').hide();
+							el3.parent().find('.notirchelp').show();
+							$('.irchost').attr('placeholder', 'www.mywebsite.com');
 						}
 						
 						$('.add_service_form').ajaxForm({url: '/ajax/create_service', type: 'post', beforeSubmit: function() {

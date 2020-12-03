@@ -59,11 +59,14 @@ foreach($rows as $row) {
 					Action_Services.Port,
 					Action_Services.Path,
 					Action_Services.Username,
-					Action_Services.Password
+					Action_Services.Password,
+					Subscription_Types.Code as event_type
 				FROM 
 					Actions 
 					JOIN Action_Services ON (Actions.ActionServiceID = Action_Services.ID) 
 					JOIN Action_Service_Types ON (Action_Service_Types.ID = Action_Services.ServiceTypeID) 
+					JOIN Subscriptions ON (Actions.SubscriptionID = Subscriptions.ID)
+					JOIN Subscription_Types ON (Subscription_Types.ID = Subscriptions.SubscriptionTypeID)
 				WHERE 
 					Actions.SubscriptionID=?
 			');

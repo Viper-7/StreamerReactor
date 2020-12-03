@@ -20,17 +20,14 @@ Once StreamerReactor receives an event, it can trigger any number of actions, ea
 * IRC Chatrooms
 * Twitch Chat
 * HTTP/S requests
-* MQTT Servers (TODO)
+* Our hosted MQTT Server
+* Remote MQTT Servers (TODO)
 * ZeroMQ Sockets (TODO)
 * Remote Websocket (TODO)
 
 With more endpoints planned for the future!
 
 Note that to read information on Subscriptions, Bits, Channel Points and Hype Trains, StreamerReactor will require access to your twitch account. The system requests only the minimum required permission to read this live information, and cannot access any details whatsoever about your user account or the channel itself.
-
-
-The main shortcoming right now is the requirement of the broadcaster_user_id value, which is generally considered public information, but Twitch do not appear to offer an API for it any more. I have been getting the ID by visiting the stream on twitch, opening the browser's developer tools, switching to the Network tab, pressing f5 to reload the page, looking for the 'gql' requests to twitch, and clicking through them, looking at the Response tab, until i find one that starts like [{"data":{"user":{"id":"25725272". This 25725272 would be the Broadcaster ID the system asks you when creating a channel.
-This is only temporary, if anyone knows a proper solution for this without requiring permission to manage a user's channel, please get in touch :)
 
 ---
 
@@ -47,6 +44,5 @@ A Reactor.sql file is included for setting up the database. config.php will need
 * Logo
 * Field Hints
 * Email Validation
-* Twitch Username to broadcaster_user_id ???
 * Usage Stats?
 
